@@ -2,9 +2,10 @@ import type { SpecExtractionOutput } from '@/agents/schemas';
 
 /**
  * Merges multiple spec extractions from REFERENCE sheets into a single project context.
+ * Accepts partial objects (e.g. from DB spec_context or notes extractor) and nulls.
  */
 export function mergeSpecContext(
-  extractions: (SpecExtractionOutput | null)[]
+  extractions: (Partial<SpecExtractionOutput> | null)[]
 ): SpecExtractionOutput {
   const scaleNotations = new Set<string>();
   const abbreviations: Record<string, string> = {};

@@ -5,6 +5,7 @@ import { renderPdfPageToPng, getPdfPageCount } from '@/lib/pdf-to-image';
 import { runClassifier } from '@/agents/classifier';
 import { runNotesExtractor } from '@/agents/notes-extractor';
 import { mergeSpecContext } from '@/lib/spec-context';
+import type { SpecExtractionOutput } from '@/agents/schemas';
 
 export async function POST(
   _request: Request,
@@ -156,7 +157,7 @@ export async function POST(
     // Merge with existing spec_context and save
     if (specExtractions.length > 0) {
       const existing = existingSpec ? [existingSpec] : [];
-      const merged = mergeSpecContext([...existing, ...specExtractions]);
+      const merged = mergeSpecContext([...existing, ...specExtractions] as (Partial<SpecExtractionOutput> | null)[]);
       const hasSpec =
         merged.scale_notations?.length ||
         (merged.abbreviations && Object.keys(merged.abbreviations).length) ||

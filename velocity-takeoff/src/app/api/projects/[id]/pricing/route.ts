@@ -144,6 +144,10 @@ export async function PATCH(
   if (parsed.data.overhead_percent !== undefined) update.overhead_percent = parsed.data.overhead_percent;
   if (parsed.data.margin_percent !== undefined) update.margin_percent = parsed.data.margin_percent;
 
+  if (!profile) {
+    return NextResponse.json({ error: 'Pricing profile not found' }, { status: 404 });
+  }
+
   if (Object.keys(update).length === 0) {
     const { data: current } = await supabase
       .from('pricing_profiles')

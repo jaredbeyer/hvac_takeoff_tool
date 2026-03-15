@@ -87,6 +87,7 @@ export async function POST(
     sheetId: string;
     status: 'complete' | 'error';
     error?: string;
+    errorSource?: string;
     lineItemsCount?: number;
   }> = [];
 
@@ -186,7 +187,7 @@ export async function POST(
           : undefined;
 
       const hasTakeoff =
-        preClassified?.sheet_types.some((t) =>
+        preClassified?.sheet_types.some((t: string) =>
           ['FLOOR_PLAN', 'DETAIL', 'EQUIPMENT_SCHEDULE'].includes(t)
         ) ?? true;
 

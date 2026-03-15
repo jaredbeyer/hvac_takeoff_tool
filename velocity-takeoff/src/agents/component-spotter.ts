@@ -76,21 +76,22 @@ export async function runComponentSpotter(
       schema: componentExtractionOutputSchema,
       system: systemPrompt,
       messages: [{ role: 'user' as const, content: userContent }],
-      maxTokens: 8192,
     }),
     generateObject({
       model: MODEL_GPT4O,
       schema: componentExtractionOutputSchema,
       system: systemPrompt,
       messages: [{ role: 'user' as const, content: userContent }],
-      maxTokens: 8192,
     }),
   ]);
 
   const claude = claudeSettled.status === 'fulfilled' ? claudeSettled.value.object : null;
   const gpt4o = gpt4oSettled.status === 'fulfilled' ? gpt4oSettled.value.object : null;
 
-  if (!claude) throw claudeSettled.reason;
+  if (!claude) {
+    if (claudeSettled.status === 'rejected') throw claudeSettled.reason;
+    throw new Error('Claude extraction failed');
+  }
   const fallback = claude;
   return {
     claude,

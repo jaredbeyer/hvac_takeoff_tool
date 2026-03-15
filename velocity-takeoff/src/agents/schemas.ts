@@ -157,10 +157,10 @@ export const qaAuditOutputSchema = z.object({
 // Spec/notes extraction output (from REFERENCE sheets)
 export const specExtractionOutputSchema = z.object({
   scale_notations: z.array(z.string()).nullable(),
-  abbreviations: z.record(z.string()).nullable(), // e.g. { "LF": "linear feet", "GALV": "galvanized" }
+  abbreviations: z.record(z.string(), z.string()).nullable(), // e.g. { "LF": "linear feet", "GALV": "galvanized" }
   material_conventions: z.array(z.string()).nullable(),
   general_specs: z.array(z.string()).nullable(),
-  symbol_legend: z.record(z.string()).nullable(), // e.g. { "flex duct": "wavy line symbol", "diffuser": "square with X" }
+  symbol_legend: z.record(z.string(), z.string()).nullable(), // e.g. { "flex duct": "wavy line symbol", "diffuser": "square with X" }
 });
 
 export type SpecExtractionOutput = z.infer<typeof specExtractionOutputSchema>;
