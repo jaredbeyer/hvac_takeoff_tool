@@ -1,0 +1,5 @@
+# Cursor / debug
+.cursor/
+
+# OS
+.DS_Store

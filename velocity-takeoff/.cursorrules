@@ -1,0 +1,38 @@
+# Velocity Takeoff Engine — Cursor Rules
+
+## Project Overview
+This is an AI-powered HVAC Bill of Materials takeoff system for Velocity Sheet Metal.
+It processes mechanical plan PDFs to extract ductwork, air devices, equipment, and
+fittings into itemized BOMs for bid generation.
+
+## Tech Stack
+- Next.js 15 with App Router (TypeScript)
+- Vercel AI SDK for multi-agent AI pipeline
+- Supabase (PostgreSQL + Auth + Storage + Realtime)
+- Tailwind CSS for styling
+
+## Architecture
+- 7 specialized AI agents in src/agents/
+- Agents use different models: Claude Opus, Claude Sonnet, GPT-4o, Gemini Pro
+- Agent 3 (Component Spotter) runs TWO models in parallel for accuracy
+- Agent 6 (Reconciliation) merges outputs and assigns confidence scores
+- All agents use Vercel AI SDK's generateObject() with Zod schemas
+
+## Conventions
+- Use Vercel AI SDK patterns (generateObject, generateText, streamText)
+- All agent outputs must conform to Zod schemas
+- API routes go in src/app/api/
+- Use Supabase JS client for all database operations
+- Store files in Supabase Storage (S3-compatible)
+- Pricing: rectangular duct by weight (lbs), round duct by linear foot
+
+## Key Models
+- anthropic('claude-opus-4-6') — component extraction, measurement, reconciliation
+- anthropic('claude-sonnet-4-6') — classification, validation
+- openai('gpt-4o') — parallel component extraction
+- google('gemini-2.0-pro') — schedule reading, QA audit
+
+## Important
+- All duct measurements use user-provided drawing scale (not AI-detected)
+- Scale is stored per-project with optional per-sheet overrides
+- Confidence scoring: HIGH (both models agree), MEDIUM (minor discrepancy), LOW (one model only)
