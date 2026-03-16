@@ -15,6 +15,24 @@ export type NotesExtractorInput = {
 export async function runNotesExtractor(
   input: NotesExtractorInput
 ): Promise<SpecExtractionOutput> {
+  // #region agent log
+  console.log(
+    JSON.stringify({
+      agentlog: true,
+      sessionId: '48a744',
+      runId: 'prod-debug',
+      hypothesisId: 'H7',
+      location: 'agents/notes-extractor.ts:runNotesExtractor:start',
+      message: 'notes-extractor start',
+      data: {
+        anthropicKeyPresent: !!process.env.ANTHROPIC_API_KEY,
+        imageChars: input.imageBase64?.length ?? null,
+      },
+      timestamp: Date.now(),
+    })
+  );
+  // #endregion agent log
+
   const { object } = await generateObject({
     model: MODEL,
     schema: specExtractionOutputSchema,
