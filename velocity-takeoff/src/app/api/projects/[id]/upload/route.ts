@@ -58,6 +58,38 @@ export async function POST(
   const filename = file.name || 'upload.pdf';
 
   try {
+    // #region agent log
+    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '48a744',
+      },
+      body: JSON.stringify({
+        sessionId: '48a744',
+        runId: 'upload-run',
+        hypothesisId: 'H1',
+        location: 'upload/route.ts:POST-start',
+        message: 'Upload POST start',
+        data: { projectId, filename, contentType },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    if (process.env.VERCEL) {
+      console.log(
+        JSON.stringify({
+          agentlog: true,
+          sessionId: '48a744',
+          runId: 'prod-debug',
+          hypothesisId: 'H1',
+          location: 'upload/route.ts:POST-start',
+          message: 'Upload POST start',
+          data: { projectId, filename, contentType },
+          timestamp: Date.now(),
+        })
+      );
+    }
+    // #endregion agent log
     await supabaseAuth
       .from('projects')
       .update({ status: 'analyzing' })
@@ -66,10 +98,82 @@ export async function POST(
     // 1. Upload PDF to storage
     const pdfPath = await uploadPDF(projectId, buffer, filename);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '48a744',
+      },
+      body: JSON.stringify({
+        sessionId: '48a744',
+        runId: 'upload-run',
+        hypothesisId: 'H2',
+        location: 'upload/route.ts:after-uploadPDF',
+        message: 'PDF uploaded',
+        data: { projectId, filename, pdfPath },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    if (process.env.VERCEL) {
+      console.log(
+        JSON.stringify({
+          agentlog: true,
+          sessionId: '48a744',
+          runId: 'prod-debug',
+          hypothesisId: 'H2',
+          location: 'upload/route.ts:after-uploadPDF',
+          message: 'PDF uploaded',
+          data: { projectId, filename, pdfPath },
+          timestamp: Date.now(),
+        })
+      );
+    }
+    // #endregion agent log
+
     // 2. Convert pages to images and create sheets
     const pageCount = await getPdfPageCount(buffer);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '48a744',
+      },
+      body: JSON.stringify({
+        sessionId: '48a744',
+        runId: 'upload-run',
+        hypothesisId: 'H2',
+        location: 'upload/route.ts:after-getPdfPageCount',
+        message: 'PDF page count read',
+        data: { projectId, filename, pageCount },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion agent log
+
     for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+      // #region agent log
+      if (pageNum === 1 || pageNum === pageCount) {
+        fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '48a744',
+          },
+          body: JSON.stringify({
+            sessionId: '48a744',
+            runId: 'upload-run',
+            hypothesisId: 'H2',
+            location: 'upload/route.ts:page-loop',
+            message: 'Processing PDF page',
+            data: { projectId, filename, pageNum, pageCount },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+      }
+      // #endregion agent log
       const pngBuffer = await renderPdfPageToPng(buffer, pageNum);
 
       // Create sheet record first to get ID for image path
@@ -105,6 +209,25 @@ export async function POST(
         .update({ image_path: imagePath })
         .eq('id', sheet.id);
     }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '48a744',
+      },
+      body: JSON.stringify({
+        sessionId: '48a744',
+        runId: 'upload-run',
+        hypothesisId: 'H2',
+        location: 'upload/route.ts:after-page-loop',
+        message: 'All pages rendered and sheet images uploaded',
+        data: { projectId, filename, pageCount },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion agent log
 
     // Phase 1: Classify new sheets; extract notes from REFERENCE sheets
     const { data: newSheets } = await supabaseAuth
@@ -157,6 +280,29 @@ export async function POST(
     // Merge with existing spec_context and save
     if (specExtractions.length > 0) {
       const existing = existingSpec ? [existingSpec] : [];
+
+      // #region agent log
+      fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Debug-Session-Id': '48a744',
+        },
+        body: JSON.stringify({
+          sessionId: '48a744',
+          runId: 'upload-run',
+          hypothesisId: 'H3',
+          location: 'upload/route.ts:before-mergeSpecContext',
+          message: 'Merging spec context',
+          data: {
+            hasExistingSpec: !!existingSpec,
+            specExtractionsCount: specExtractions.length,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion agent log
+
       const merged = mergeSpecContext([...existing, ...specExtractions] as (Partial<SpecExtractionOutput> | null)[]);
       const hasSpec =
         merged.scale_notations?.length ||
@@ -196,6 +342,49 @@ export async function POST(
       .update({ status: 'draft' })
       .eq('id', projectId);
     const message = err instanceof Error ? err.message : 'Upload failed';
+
+    // #region agent log
+    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': '48a744',
+      },
+      body: JSON.stringify({
+        sessionId: '48a744',
+        runId: 'upload-run',
+        hypothesisId: 'H4',
+        location: 'upload/route.ts:catch',
+        message: 'Upload error',
+        data: {
+          projectId,
+          filename,
+          errorMessage: message,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    if (process.env.VERCEL) {
+      console.error(
+        JSON.stringify({
+          agentlog: true,
+          sessionId: '48a744',
+          runId: 'prod-debug',
+          hypothesisId: 'H4',
+          location: 'upload/route.ts:catch',
+          message: 'Upload error',
+          data: {
+            projectId,
+            filename,
+            errorMessage: message,
+            errorName: err instanceof Error ? err.name : null,
+          },
+          timestamp: Date.now(),
+        })
+      );
+    }
+    // #endregion agent log
+
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

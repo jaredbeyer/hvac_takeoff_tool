@@ -16,6 +16,24 @@ export type ClassifierInput = {
  * Classifies a sheet image by type (FLOOR_PLAN, EQUIPMENT_SCHEDULE, etc.)
  */
 export async function runClassifier(input: ClassifierInput): Promise<ClassifierOutput> {
+  // #region agent log
+  console.log(
+    JSON.stringify({
+      agentlog: true,
+      sessionId: '48a744',
+      runId: 'prod-debug',
+      hypothesisId: 'H6',
+      location: 'agents/classifier.ts:runClassifier:start',
+      message: 'classifier start',
+      data: {
+        anthropicKeyPresent: !!process.env.ANTHROPIC_API_KEY,
+        imageChars: input.imageBase64?.length ?? null,
+      },
+      timestamp: Date.now(),
+    })
+  );
+  // #endregion agent log
+
   const { object } = await generateObject({
     model: MODEL,
     schema: classifierOutputSchema,
