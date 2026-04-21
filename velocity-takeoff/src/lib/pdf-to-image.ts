@@ -3,6 +3,16 @@ import { createCanvas } from '@napi-rs/canvas';
 
 const RENDER_SCALE = 2;
 
+// Prevent pdfjs from trying to load a worker bundle in serverless runtimes.
+// Vercel serverless bundling may omit `pdf.worker.mjs`, which causes fake-worker init to throw.
+try {
+  (pdfjs as any).GlobalWorkerOptions = (pdfjs as any).GlobalWorkerOptions || {};
+  (pdfjs as any).GlobalWorkerOptions.workerSrc = '';
+  (pdfjs as any).GlobalWorkerOptions.disableWorker = true;
+} catch {
+  // best-effort only
+}
+
 /**
  * Convert a PDF page to PNG buffer.
  * Uses pdfjs-dist + @napi-rs/canvas for serverless compatibility.
