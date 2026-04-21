@@ -16,7 +16,10 @@ export async function renderPdfPageToPng(
     data,
     useSystemFonts: true,
     disableFontFace: true,
-  }).promise;
+    // pdfjs-dist types for legacy build don't expose this, but it prevents
+    // fake-worker setup (which fails in Vercel serverless bundling).
+    disableWorker: true,
+  } as any).promise;
   const page = await doc.getPage(pageNum);
   const viewport = page.getViewport({ scale: RENDER_SCALE });
 
@@ -37,6 +40,6 @@ export async function renderPdfPageToPng(
  */
 export async function getPdfPageCount(pdfBuffer: Buffer): Promise<number> {
   const data = new Uint8Array(pdfBuffer);
-  const doc = await pdfjs.getDocument({ data }).promise;
+  const doc = await pdfjs.getDocument({ data, disableWorker: true } as any).promise;
   return doc.numPages;
 }
