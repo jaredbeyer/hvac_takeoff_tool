@@ -13,7 +13,7 @@ try {
   // that doesn't exist at runtime. Point directly at the installed node_modules file.
   const workerAbsPath = path.join(
     process.cwd(),
-    'node_modules/pdfjs-dist/build/pdf.worker.mjs'
+    'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'
   );
   (pdfjs as any).GlobalWorkerOptions.workerSrc =
     pathToFileURL(workerAbsPath).toString();
