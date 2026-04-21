@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase-route';
 import { uploadPDF, uploadSheetImage, getSheetImageForAnalysis } from '@/lib/storage';
+import { createServerClient } from '@/lib/supabase-server';
 import { renderPdfPageToPng, getPdfPageCount } from '@/lib/pdf-to-image';
 import { runClassifier } from '@/agents/classifier';
 import { runNotesExtractor } from '@/agents/notes-extractor';
 import { mergeSpecContext } from '@/lib/spec-context';
 import type { SpecExtractionOutput } from '@/agents/schemas';
+
+export async function GET() {
+  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
+}
 
 export async function POST(
   _request: Request,
@@ -36,144 +41,75 @@ export async function POST(
     );
   }
 
-  const formData = await _request.formData();
-  const file = formData.get('file') as File | null;
+  // Accept either:
+  // - multipart/form-data with a PDF file (works locally / small PDFs), OR
+  // - JSON with { pdfPath } referencing a PDF already uploaded to Supabase Storage (recommended for Vercel).
+  const contentType = _request.headers.get('content-type') || '';
 
-  if (!file || !(file instanceof File)) {
-    return NextResponse.json(
-      { error: 'No file provided. Use form field "file"' },
-      { status: 400 }
-    );
-  }
+  let buffer: Buffer;
+  let filename: string;
+  let pdfPath: string;
 
-  const contentType = file.type;
-  if (contentType !== 'application/pdf') {
-    return NextResponse.json(
-      { error: 'Only PDF files are allowed' },
-      { status: 400 }
-    );
-  }
+  if (contentType.includes('application/json')) {
+    const body = (await _request.json().catch(() => null)) as
+      | { pdfPath?: string; filename?: string }
+      | null;
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const filename = file.name || 'upload.pdf';
+    if (!body?.pdfPath || typeof body.pdfPath !== 'string') {
+      return NextResponse.json({ error: 'Missing pdfPath' }, { status: 400 });
+    }
 
-  try {
-    // #region agent log
-    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '48a744',
-      },
-      body: JSON.stringify({
-        sessionId: '48a744',
-        runId: 'upload-run',
-        hypothesisId: 'H1',
-        location: 'upload/route.ts:POST-start',
-        message: 'Upload POST start',
-        data: { projectId, filename, contentType },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    if (process.env.VERCEL) {
-      console.log(
-        JSON.stringify({
-          agentlog: true,
-          sessionId: '48a744',
-          runId: 'prod-debug',
-          hypothesisId: 'H1',
-          location: 'upload/route.ts:POST-start',
-          message: 'Upload POST start',
-          data: { projectId, filename, contentType },
-          timestamp: Date.now(),
-        })
+    pdfPath = body.pdfPath;
+    filename = typeof body.filename === 'string' ? body.filename : 'upload.pdf';
+
+    const supabaseService = createServerClient();
+    const { data, error } = await supabaseService.storage
+      .from('project-pdfs')
+      .download(pdfPath);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!data) {
+      return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
+    }
+
+    buffer = Buffer.from(await data.arrayBuffer());
+  } else {
+    const formData = await _request.formData();
+    const file = formData.get('file') as File | null;
+
+    if (!file || !(file instanceof File)) {
+      return NextResponse.json(
+        { error: 'No file provided. Use form field "file"' },
+        { status: 400 }
       );
     }
-    // #endregion agent log
+
+    if (file.type !== 'application/pdf') {
+      return NextResponse.json(
+        { error: 'Only PDF files are allowed' },
+        { status: 400 }
+      );
+    }
+
+    buffer = Buffer.from(await file.arrayBuffer());
+    filename = file.name || 'upload.pdf';
+
+    // Server-side upload (may hit Vercel payload limits for large PDFs).
+    pdfPath = await uploadPDF(projectId, buffer, filename);
+  }
+
+  try {
     await supabaseAuth
       .from('projects')
       .update({ status: 'analyzing' })
       .eq('id', projectId);
 
-    // 1. Upload PDF to storage
-    const pdfPath = await uploadPDF(projectId, buffer, filename);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '48a744',
-      },
-      body: JSON.stringify({
-        sessionId: '48a744',
-        runId: 'upload-run',
-        hypothesisId: 'H2',
-        location: 'upload/route.ts:after-uploadPDF',
-        message: 'PDF uploaded',
-        data: { projectId, filename, pdfPath },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    if (process.env.VERCEL) {
-      console.log(
-        JSON.stringify({
-          agentlog: true,
-          sessionId: '48a744',
-          runId: 'prod-debug',
-          hypothesisId: 'H2',
-          location: 'upload/route.ts:after-uploadPDF',
-          message: 'PDF uploaded',
-          data: { projectId, filename, pdfPath },
-          timestamp: Date.now(),
-        })
-      );
-    }
-    // #endregion agent log
-
     // 2. Convert pages to images and create sheets
     const pageCount = await getPdfPageCount(buffer);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '48a744',
-      },
-      body: JSON.stringify({
-        sessionId: '48a744',
-        runId: 'upload-run',
-        hypothesisId: 'H2',
-        location: 'upload/route.ts:after-getPdfPageCount',
-        message: 'PDF page count read',
-        data: { projectId, filename, pageCount },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion agent log
-
     for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
-      // #region agent log
-      if (pageNum === 1 || pageNum === pageCount) {
-        fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '48a744',
-          },
-          body: JSON.stringify({
-            sessionId: '48a744',
-            runId: 'upload-run',
-            hypothesisId: 'H2',
-            location: 'upload/route.ts:page-loop',
-            message: 'Processing PDF page',
-            data: { projectId, filename, pageNum, pageCount },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-      }
-      // #endregion agent log
       const pngBuffer = await renderPdfPageToPng(buffer, pageNum);
 
       // Create sheet record first to get ID for image path
@@ -209,25 +145,6 @@ export async function POST(
         .update({ image_path: imagePath })
         .eq('id', sheet.id);
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '48a744',
-      },
-      body: JSON.stringify({
-        sessionId: '48a744',
-        runId: 'upload-run',
-        hypothesisId: 'H2',
-        location: 'upload/route.ts:after-page-loop',
-        message: 'All pages rendered and sheet images uploaded',
-        data: { projectId, filename, pageCount },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion agent log
 
     // Phase 1: Classify new sheets; extract notes from REFERENCE sheets
     const { data: newSheets } = await supabaseAuth
@@ -281,28 +198,6 @@ export async function POST(
     if (specExtractions.length > 0) {
       const existing = existingSpec ? [existingSpec] : [];
 
-      // #region agent log
-      fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Debug-Session-Id': '48a744',
-        },
-        body: JSON.stringify({
-          sessionId: '48a744',
-          runId: 'upload-run',
-          hypothesisId: 'H3',
-          location: 'upload/route.ts:before-mergeSpecContext',
-          message: 'Merging spec context',
-          data: {
-            hasExistingSpec: !!existingSpec,
-            specExtractionsCount: specExtractions.length,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion agent log
-
       const merged = mergeSpecContext([...existing, ...specExtractions] as (Partial<SpecExtractionOutput> | null)[]);
       const hasSpec =
         merged.scale_notations?.length ||
@@ -342,48 +237,6 @@ export async function POST(
       .update({ status: 'draft' })
       .eq('id', projectId);
     const message = err instanceof Error ? err.message : 'Upload failed';
-
-    // #region agent log
-    fetch('http://127.0.0.1:7531/ingest/38c2ede6-a1f1-4262-a6ea-677162868f09', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '48a744',
-      },
-      body: JSON.stringify({
-        sessionId: '48a744',
-        runId: 'upload-run',
-        hypothesisId: 'H4',
-        location: 'upload/route.ts:catch',
-        message: 'Upload error',
-        data: {
-          projectId,
-          filename,
-          errorMessage: message,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    if (process.env.VERCEL) {
-      console.error(
-        JSON.stringify({
-          agentlog: true,
-          sessionId: '48a744',
-          runId: 'prod-debug',
-          hypothesisId: 'H4',
-          location: 'upload/route.ts:catch',
-          message: 'Upload error',
-          data: {
-            projectId,
-            filename,
-            errorMessage: message,
-            errorName: err instanceof Error ? err.name : null,
-          },
-          timestamp: Date.now(),
-        })
-      );
-    }
-    // #endregion agent log
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -107,18 +107,47 @@ export default function ProjectDetailPage() {
     getAndClearPendingUpload(id).then((file) => {
       if (!file) return;
       setUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      fetch(`/api/projects/${id}/upload`, {
-        method: 'POST',
-        body: formData,
-      })
-        .then((res) => {
-          if (!res.ok) return res.json().then((d) => { throw new Error(d.error ?? 'Upload failed'); });
-          return fetchData();
-        })
-        .catch((err) => alert(err instanceof Error ? err.message : 'Upload failed'))
-        .finally(() => setUploading(false));
+      (async () => {
+        try {
+          const urlRes = await fetch(`/api/projects/${id}/upload-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name }),
+          });
+          if (!urlRes.ok) {
+            const d = await urlRes.json().catch(() => ({}));
+            throw new Error(d.error ?? 'Upload failed');
+          }
+
+          const { path, token } = (await urlRes.json()) as {
+            path: string;
+            token: string;
+            signedUrl: string;
+          };
+
+          const supabase = createClient();
+          const { error: uploadErr } = await supabase.storage
+            .from('project-pdfs')
+            .uploadToSignedUrl(path, token, file, { contentType: 'application/pdf' });
+          if (uploadErr) throw new Error(uploadErr.message);
+
+          const res = await fetch(`/api/projects/${id}/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pdfPath: path, filename: file.name }),
+          });
+          if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            throw new Error(d.error ?? 'Upload failed');
+          }
+
+          await fetchData();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : 'Upload failed');
+        } finally {
+          setUploading(false);
+        }
+      })();
     });
   }, [id, fromNew]);
 
@@ -160,14 +189,36 @@ export default function ProjectDetailPage() {
     if (!file || file.type !== 'application/pdf') return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      const urlRes = await fetch(`/api/projects/${id}/upload-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name }),
+      });
+
+      if (!urlRes.ok) {
+        const data = await urlRes.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Upload failed');
+      }
+
+      const { path, token } = (await urlRes.json()) as {
+        path: string;
+        token: string;
+        signedUrl: string;
+      };
+
+      const supabase = createClient();
+      const { error: uploadErr } = await supabase.storage
+        .from('project-pdfs')
+        .uploadToSignedUrl(path, token, file, { contentType: 'application/pdf' });
+      if (uploadErr) throw new Error(uploadErr.message);
+
       const res = await fetch(`/api/projects/${id}/upload`, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfPath: path, filename: file.name }),
       });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? 'Upload failed');
       }
       await fetchData();
