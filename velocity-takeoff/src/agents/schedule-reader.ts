@@ -1,5 +1,6 @@
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { AI_CALL_TIMEOUT_MS } from '@/lib/ai-timeouts';
 import { SCHEDULE_EXTRACTION_SYSTEM_PROMPT } from './prompts/schedule';
 import {
   scheduleOutputSchema,
@@ -39,6 +40,7 @@ export async function runScheduleReader(input: ScheduleReaderInput): Promise<Sch
       model: MODEL,
       schema: scheduleOutputSchema,
       system: SCHEDULE_EXTRACTION_SYSTEM_PROMPT,
+      abortSignal: AbortSignal.timeout(AI_CALL_TIMEOUT_MS.scheduleReader),
       messages: [
         {
           role: 'user',

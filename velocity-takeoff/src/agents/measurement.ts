@@ -1,5 +1,6 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
+import { AI_CALL_TIMEOUT_MS } from '@/lib/ai-timeouts';
 import { getMeasurementSystemPrompt } from './prompts/measurement';
 import {
   componentExtractionOutputSchema,
@@ -38,6 +39,7 @@ export async function runMeasurement(input: MeasurementInput): Promise<Component
     model: MODEL,
     schema: componentExtractionOutputSchema,
     system: systemPrompt,
+    abortSignal: AbortSignal.timeout(AI_CALL_TIMEOUT_MS.measurement),
     messages: [
       {
         role: 'user',

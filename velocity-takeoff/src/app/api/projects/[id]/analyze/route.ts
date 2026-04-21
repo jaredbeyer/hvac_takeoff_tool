@@ -69,6 +69,7 @@ export async function POST(
     );
   }
 
+  try {
   const scaleStr = project.default_scale;
   const scaleRatio = project.scale_ratio;
   const pixelsPerFoot = calculatePixelsPerFoot(scaleRatio, 96);
@@ -322,4 +323,19 @@ export async function POST(
     sheets_processed: results.length,
     results,
   });
+  } catch (err) {
+    const fullError = serializeError(err);
+    const errorSource = getErrorSource(err);
+    await supabase.from('projects').update({ status: 'draft' }).eq('id', projectId);
+    await supabase
+      .from('sheets')
+      .update({
+        analysis_status: 'error',
+        analysis_error: fullError,
+        analysis_error_source: errorSource,
+      })
+      .eq('project_id', projectId)
+      .in('analysis_status', ['queued', 'processing']);
+    return NextResponse.json({ error: fullError }, { status: 500 });
+  }
 }

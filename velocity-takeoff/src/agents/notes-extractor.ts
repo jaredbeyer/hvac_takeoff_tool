@@ -1,5 +1,6 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
+import { AI_CALL_TIMEOUT_MS } from '@/lib/ai-timeouts';
 import { specExtractionOutputSchema, type SpecExtractionOutput } from './schemas';
 
 const MODEL = anthropic('claude-sonnet-4-6');
@@ -37,6 +38,7 @@ export async function runNotesExtractor(
     model: MODEL,
     schema: specExtractionOutputSchema,
     system: NOTES_EXTRACTOR_SYSTEM_PROMPT,
+    abortSignal: AbortSignal.timeout(AI_CALL_TIMEOUT_MS.notesExtractor),
     messages: [
       {
         role: 'user',

@@ -1,5 +1,6 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
+import { AI_CALL_TIMEOUT_MS } from '@/lib/ai-timeouts';
 import { RECONCILIATION_SYSTEM_PROMPT } from './prompts/reconciliation';
 import {
   reconciliationOutputSchema,
@@ -31,6 +32,7 @@ export async function runReconciliation(
     model: anthropic('claude-opus-4-6'),
     schema: reconciliationOutputSchema,
     system: RECONCILIATION_SYSTEM_PROMPT,
+    abortSignal: AbortSignal.timeout(AI_CALL_TIMEOUT_MS.reconciliation),
     prompt: `Merge these two extractions into one reconciled list:\n\n${context}`,
   });
 

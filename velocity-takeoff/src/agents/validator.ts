@@ -1,5 +1,6 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
+import { AI_CALL_TIMEOUT_MS } from '@/lib/ai-timeouts';
 import { VALIDATOR_SYSTEM_PROMPT } from './prompts/validator';
 import {
   validatorOutputSchema,
@@ -32,6 +33,7 @@ export async function runValidator(input: ValidatorInput): Promise<ValidatorOutp
     model: anthropic('claude-sonnet-4-6'),
     schema: validatorOutputSchema,
     system: VALIDATOR_SYSTEM_PROMPT,
+    abortSignal: AbortSignal.timeout(AI_CALL_TIMEOUT_MS.validator),
     prompt: `Validate this HVAC takeoff data:\n\n${context}`,
   });
 

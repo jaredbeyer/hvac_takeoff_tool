@@ -1,5 +1,6 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
+import { AI_CALL_TIMEOUT_MS } from '@/lib/ai-timeouts';
 import { CLASSIFIER_SYSTEM_PROMPT } from './prompts/classifier';
 import {
   classifierOutputSchema,
@@ -38,6 +39,7 @@ export async function runClassifier(input: ClassifierInput): Promise<ClassifierO
     model: MODEL,
     schema: classifierOutputSchema,
     system: CLASSIFIER_SYSTEM_PROMPT,
+    abortSignal: AbortSignal.timeout(AI_CALL_TIMEOUT_MS.classifier),
     messages: [
       {
         role: 'user',

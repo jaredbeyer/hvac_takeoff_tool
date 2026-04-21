@@ -1,6 +1,7 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
+import { AI_CALL_TIMEOUT_MS } from '@/lib/ai-timeouts';
 import { getComponentExtractionPrompt } from './prompts/component';
 import {
   componentExtractionOutputSchema,
@@ -75,12 +76,14 @@ export async function runComponentSpotter(
       model: MODEL_CLAUDE,
       schema: componentExtractionOutputSchema,
       system: systemPrompt,
+      abortSignal: AbortSignal.timeout(AI_CALL_TIMEOUT_MS.componentSpotter),
       messages: [{ role: 'user' as const, content: userContent }],
     }),
     generateObject({
       model: MODEL_GPT4O,
       schema: componentExtractionOutputSchema,
       system: systemPrompt,
+      abortSignal: AbortSignal.timeout(AI_CALL_TIMEOUT_MS.componentSpotter),
       messages: [{ role: 'user' as const, content: userContent }],
     }),
   ]);
