@@ -1,5 +1,7 @@
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createCanvas } from '@napi-rs/canvas';
+import path from 'path';
+import { pathToFileURL } from 'url';
 
 const RENDER_SCALE = 2;
 
@@ -7,12 +9,14 @@ const RENDER_SCALE = 2;
 // Provide a workerSrc so serverless runtimes don't error during initialization.
 try {
   (pdfjs as any).GlobalWorkerOptions = (pdfjs as any).GlobalWorkerOptions || {};
-  // Importing from the non-legacy build ensures the worker file is present and
-  // can be bundled/resolved in Next/Vercel.
-  (pdfjs as any).GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.mjs',
-    import.meta.url
-  ).toString();
+  // In Vercel, `import.meta.url` rewriting can yield a `.next/server/chunks/...` URL
+  // that doesn't exist at runtime. Point directly at the installed node_modules file.
+  const workerAbsPath = path.join(
+    process.cwd(),
+    'node_modules/pdfjs-dist/build/pdf.worker.mjs'
+  );
+  (pdfjs as any).GlobalWorkerOptions.workerSrc =
+    pathToFileURL(workerAbsPath).toString();
 } catch {
   // best-effort only
 }
