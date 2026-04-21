@@ -3,12 +3,14 @@ import { createCanvas } from '@napi-rs/canvas';
 
 const RENDER_SCALE = 2;
 
-// Prevent pdfjs from trying to load a worker bundle in serverless runtimes.
-// Vercel serverless bundling may omit `pdf.worker.mjs`, which causes fake-worker init to throw.
+// pdfjs can attempt to spin up a "fake worker" unless a workerSrc is provided.
+// Provide a workerSrc so serverless runtimes don't error during initialization.
 try {
   (pdfjs as any).GlobalWorkerOptions = (pdfjs as any).GlobalWorkerOptions || {};
-  (pdfjs as any).GlobalWorkerOptions.workerSrc = '';
-  (pdfjs as any).GlobalWorkerOptions.disableWorker = true;
+  (pdfjs as any).GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/legacy/build/pdf.worker.mjs',
+    import.meta.url
+  ).toString();
 } catch {
   // best-effort only
 }
